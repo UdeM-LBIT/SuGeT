@@ -14,10 +14,54 @@ SuperGeneTreeMaker::SuperGeneTreeMaker()
 
 
 
-
-pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> trees, vector<unordered_map<Node *, Node *> > lca_mappings,
+int NCALLS = 0;
+pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> &trees, vector<unordered_map<Node *, Node *> > &lca_mappings,
                                                 Node* speciesTree, bool mustPreserveDupSpec, bool isFirstCall)
 {
+    if (isFirstCall)
+    {
+
+        GeneSpeciesTreeUtil::Instance()->LabelInternalNodesUniquely(trees);
+        this->intersectionInfo = TreeLabelIntersectionInfo();
+        this->intersectionInfo.ComputeAllIntersections(trees);
+
+        recursionCache.clear();
+
+        for (int t = 0; t < trees.size(); t++)
+        {
+            //cout<<"DEBUG INFO!"<<endl<<endl;
+            //cout<<NewickLex::ToNewickString(trees[t])<<endl;
+            //GeneSpeciesTreeUtil::Instance()->PrintMapping(trees[t], lca_mappings[t]);
+            //cout<<endl<<"END DEBUG INFO"<<endl<<endl;
+        }
+
+    }
+
+
+    //check if cached already
+    string strtrees = "";
+    for (int i = 0; i < trees.size(); i++)
+    {
+        strtrees += trees[i]->GetLabel() + "-";
+    }
+    if (recursionCache.find(strtrees) != recursionCache.end())
+    {
+        pair<Node*, int> sol = recursionCache[strtrees];
+        //return a copy: we don't want the cached one to get deleted
+        //TODO: eliminate the need for all this copying stuff
+        Node* nret = new Node(false);
+        nret->CopyFrom(sol.first);
+        return make_pair(nret, sol.second);
+    }
+
+
+    /*NCALLS++;
+
+    if (NCALLS % 100 == 0)
+    {
+        cout<<"NCALLS="<<NCALLS<<" "<<strtrees<<endl;
+    }*/
+
     if (trees.size() == 0)
         throw "No tree was given";
 
@@ -62,12 +106,7 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> trees,
     }
 
 
-    if (isFirstCall)
-    {
-        this->LabelInternalNodesUniquely(trees);
-        this->intersectionInfo = TreeLabelIntersectionInfo();
-        this->intersectionInfo.ComputeAllIntersections(trees);
-    }
+
 
 
     int nbTrees = trees.size();
@@ -125,6 +164,7 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> trees,
 
                     if (!lca_mapping[tree])
                     {
+                        cout<<"LCA PROBLEM IN CASE 0"<<endl;
                         throw "LCA mapping problem here";
                     }
                 }
@@ -136,6 +176,9 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> trees,
 
                     if (!lca_mapping[t2] || !lca_mapping[t1])
                     {
+                        cout<<"LCA PROBLEM IN CASE 1"<<endl;
+                        cout<<NewickLex::ToNewickString(speciesTree)<<endl;
+                        GeneSpeciesTreeUtil::Instance()->PrintMapping(tree, lca_mapping);
                         throw "LCA mapping problem here";
                     }
 
@@ -153,6 +196,7 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> trees,
 
                     if (!lca_mapping[tree])
                     {
+                        cout<<"LCA PROBLEM IN CASE 2"<<endl;
                         throw "LCA mapping problem here";
                     }
                 }
@@ -164,6 +208,7 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> trees,
 
                     if (!lca_mapping[t2] || !lca_mapping[t1])
                     {
+                        cout<<"LCA PROBLEM IN CASE 3"<<endl;
                         throw "LCA mapping problem here";
                     }
 
@@ -266,6 +311,11 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> trees,
                     currentBestSol->AddSubTree(res_right.first);
                     currentMinDL = ttlCost;
                 }
+                else
+                {
+                    delete res_left.first;
+                    delete res_right.first;
+                }
             }
 
         }
@@ -279,6 +329,21 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> trees,
     }
 
 
+    //make a copy for the cache - the original might get deleted
+    Node* cachedBestSol = new Node(false);
+    cachedBestSol->CopyFrom(currentBestSol);
+    recursionCache[strtrees] = make_pair(cachedBestSol, currentMinDL);
+
+
+    if (isFirstCall)
+    {
+        //cleanup cache
+        for (unordered_map<string, pair<Node*, int> >::iterator it = recursionCache.begin(); it != recursionCache.end(); it++)
+        {
+            Node* cached = (*it).second.first;
+            delete cached;
+        }
+    }
 
     return make_pair(currentBestSol, currentMinDL);
 
@@ -310,32 +375,6 @@ void SuperGeneTreeMaker::ApplyNextConfig(vector<int> &counters)
 }
 
 
-void SuperGeneTreeMaker::LabelInternalNodesUniquely(vector<Node*> trees)
-{
-    int cpt = 0;
-
-    for (int t = 0; t < trees.size(); t++)
-    {
-        TreeIterator* it = trees[t]->GetPostOrderIterator();
-
-        while (Node* n = it->next())
-        {
-            if (!n->IsLeaf())
-            {
-                string lbl = n->GetLabel();
-                if (lbl != "")
-                    lbl += "-";
-                lbl += Util::ToString(cpt);
-
-                n->SetLabel(lbl);
-
-                cpt++;
-            }
-        }
-
-        trees[t]->CloseIterator(it);
-    }
-}
 
 
 

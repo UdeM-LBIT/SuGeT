@@ -2,6 +2,7 @@
 #define GENESPECIESTREEUTIL_H
 
 #include "trees/node.h"
+#include "trees/newicklex.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -57,6 +58,13 @@ public:
 
     int GetNbLossesOnBranch(Node* speciesDown, Node* speciesUp, bool isDupTop);
 
+
+    void PruneSpeciesTreeFromLCAMapping(Node* speciesTree, Node* geneTree, unordered_map<Node *, Node *> lca_mapping);
+    void PruneSpeciesTree(Node* speciesTree, set<Node*> speciesToKeep);
+
+    vector<Node*> GetGeneTreeHighestSpeciations(Node* geneTree, Node* speciesTree,
+                                                 unordered_map<Node*, Node*> lca_mapping);
+
     /**
      * @brief IsNodeDup Checks if parsimony would infer a duplication at geneTreeNode.  Works in the non-binary case.
      * @param geneTreeNode
@@ -64,6 +72,12 @@ public:
      * @return
      */
     bool IsNodeDup(Node* geneTreeNode, unordered_map<Node*, Node*> &lca_mapping);
+
+    void LabelInternalNodesWithLCAMapping(Node* geneTree, Node* speciesTree, unordered_map<Node*, Node*> lca_mapping);
+    void LabelInternalNodesUniquely(Node* tree);
+    void LabelInternalNodesUniquely(vector<Node*> trees);
+
+    string GetPrunedSpeciesTreeNewick(string gcontent, string scontent);
 };
 
 #endif // GENESPECIESTREEUTIL_H

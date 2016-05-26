@@ -1,5 +1,24 @@
 #include "genespeciestreeutil.h"
 
+//This is used for pruning species trees.  The Node::Restrict function takes a fct pointer as argument.
+bool SpeciesTreePruning__RestrictFunction(Node* n, void *arg)
+{
+    set<Node*>* leavesToKeep = (set<Node*>*)arg;
+    if (n->IsLeaf())
+    {
+        return (leavesToKeep->find(n) != leavesToKeep->end());
+    }
+    else
+    {
+        return (n->IsRoot() || n->GetNbChildren() > 1);
+    }
+}
+
+
+
+
+
+
 GeneSpeciesTreeUtil::GeneSpeciesTreeUtil()
 {
 }
@@ -88,7 +107,10 @@ unordered_map<Node*, Node*> GeneSpeciesTreeUtil::GetGeneSpeciesMappingByLabel(No
         }
         else
         {
-            throw "Could not find species for gene " + lbl;
+            string msg = "Could not find species for gene " + lbl +
+                    "  S=" + NewickLex::ToNewickString(speciesTree);
+            cout<<msg<<endl;
+            throw msg;
         }
     }
     geneTree->CloseIterator(it);
@@ -339,4 +361,132 @@ int GeneSpeciesTreeUtil::GetNbLossesOnBranch(Node* speciesDown, Node* speciesUp,
             throw "Speciation is inconsistent";
         return depthDiff - 1;
     }
+}
+
+
+
+void GeneSpeciesTreeUtil::PruneSpeciesTreeFromLCAMapping(Node* speciesTree, Node* geneTree, unordered_map<Node*, Node*> lca_mapping)
+{
+    set<Node*> speciesToKeep;
+
+    TreeIterator* it = geneTree->GetPostOrderIterator(true);
+    while (Node* leaf = it->next())
+    {
+        speciesToKeep.insert(lca_mapping[leaf]);
+    }
+    geneTree->CloseIterator(it);
+
+    PruneSpeciesTree(speciesTree, speciesToKeep);
+}
+
+
+void GeneSpeciesTreeUtil::PruneSpeciesTree(Node* speciesTree, set<Node*> speciesToKeep)
+{
+    speciesTree->Restrict(&SpeciesTreePruning__RestrictFunction, (void*)&speciesToKeep);
+}
+
+
+
+
+
+vector<Node*> GeneSpeciesTreeUtil::GetGeneTreeHighestSpeciations(Node* geneTree, Node* speciesTree,
+                                             unordered_map<Node*, Node*> lca_mapping)
+{
+    vector<Node*> specs;
+
+    //root of gene tree is a spec => return it
+    if (!GeneSpeciesTreeUtil::Instance()->IsNodeDup(geneTree, lca_mapping))
+    {
+        specs.push_back(geneTree);
+    }
+    //root is a dup => check for specs below
+    else
+    {
+        for (int i = 0; i < geneTree->GetNbChildren(); i++)
+        {
+            vector<Node*> ch_specs = GetGeneTreeHighestSpeciations(geneTree->GetChild(i), speciesTree, lca_mapping);
+            specs.insert(specs.end(), ch_specs.begin(), ch_specs.end());
+        }
+    }
+
+    return specs;
+}
+
+void GeneSpeciesTreeUtil::LabelInternalNodesUniquely(Node* tree)
+{
+    vector<Node*> v;
+    v.push_back(tree);
+    LabelInternalNodesUniquely(v);
+}
+
+void GeneSpeciesTreeUtil::LabelInternalNodesUniquely(vector<Node*> trees)
+{
+    int cpt = 0;
+
+    for (int t = 0; t < trees.size(); t++)
+    {
+        TreeIterator* it = trees[t]->GetPostOrderIterator();
+
+        while (Node* n = it->next())
+        {
+            if (!n->IsLeaf())
+            {
+                string lbl = n->GetLabel();
+                if (lbl != "")
+                    lbl += "-";
+                lbl += Util::ToString(cpt);
+
+                n->SetLabel(lbl);
+
+                cpt++;
+            }
+        }
+
+        trees[t]->CloseIterator(it);
+    }
+}
+
+
+void GeneSpeciesTreeUtil::LabelInternalNodesWithLCAMapping(Node* geneTree, Node* speciesTree, unordered_map<Node*, Node*> lca_mapping)
+{
+    TreeIterator* it = geneTree->GetPostOrderIterator();
+    while (Node* g = it->next())
+    {
+        if (!g->IsLeaf())
+            g->SetLabel(lca_mapping[g]->GetLabel());
+    }
+
+    geneTree->CloseIterator(it);
+}
+
+
+string GeneSpeciesTreeUtil::GetPrunedSpeciesTreeNewick(string gcontent, string scontent)
+{
+    Node* speciesTree = NewickLex::ParseNewickString(scontent, true);
+    Node* geneTree = NewickLex::ParseNewickString(gcontent, false);
+
+
+    unordered_map<Node*, Node*> lcamap = GeneSpeciesTreeUtil::Instance()->GetLCAMapping(geneTree, speciesTree, "__", 1);
+
+
+
+    speciesTree->DeleteTreeInfo();
+    GeneSpeciesTreeUtil::Instance()->PruneSpeciesTreeFromLCAMapping(speciesTree, geneTree, lcamap);
+
+    //special case: root has only one child
+    if (speciesTree->GetNbChildren() == 1)
+    {
+        Node* prevroot = speciesTree;
+        speciesTree = prevroot->GetChild(0);
+        speciesTree->SetParent(NULL);
+        prevroot->RemoveChild(speciesTree);
+        delete prevroot;
+    }
+
+    //this heavy gymnastic sucks, but there's no quick alternative
+    string snewick = NewickLex::ToNewickString(speciesTree);
+    delete speciesTree;
+    delete geneTree;
+
+    return snewick;
 }

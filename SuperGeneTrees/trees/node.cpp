@@ -255,6 +255,27 @@ void Node::AddSubTree(Node* n)
 }
 
 
+void Node::DeleteTreeInfo()
+{
+    for (int i = 0; i < this->GetNbChildren(); i++)
+    {
+        this->GetChild(i)->DeleteTreeInfo();
+    }
+
+    if (this->treeInfo)
+    {
+        if (this->IsRoot())
+            delete treeInfo;
+
+        this->treeInfo = NULL;
+    }
+
+
+
+
+}
+
+
 void Node::RemoveChild(Node* node)
 {
     vector<Node*>::iterator it = this->children.begin();
@@ -345,6 +366,8 @@ void Node::Restrict(bool (*fncDelete)(Node*, void*), void* arg)
         }
     }
 
+    this->CloseIterator(it);
+
 }
 
 
@@ -364,7 +387,7 @@ void Node::DeleteSingleChildDescendants()
             n = it->next();
         }
     }
-
+    this->CloseIterator(it);
 }
 
 

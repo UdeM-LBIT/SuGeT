@@ -44,16 +44,17 @@ public:
     SuperGeneTreeMaker();
 
     //returns a supertree + DL cost
-    pair<Node*, int> GetSuperGeneTreeMinDL(vector<Node *> trees, vector<unordered_map<Node *, Node *> > lca_mappings,
+    pair<Node*, int> GetSuperGeneTreeMinDL(vector<Node *> &trees, vector<unordered_map<Node *, Node *> > &lca_mappings,
                                        Node* speciesTree, bool mustPreserveDupSpec, bool isFirstCall = true);
 
 private:
 
-    void LabelInternalNodesUniquely(vector<Node*> trees);
 
     void ApplyNextConfig(vector<int> &counters);
 
     TreeLabelIntersectionInfo intersectionInfo;
+
+    unordered_map<string, pair<Node*, int> > recursionCache;
 
 
 };

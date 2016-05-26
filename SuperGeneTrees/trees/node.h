@@ -205,6 +205,9 @@ public:
       **/
     void AddSubTree(Node* node);
 
+
+    void DeleteTreeInfo();
+
     /**
       Remove a node that belongs to the children of the node.  This child DOES NOT get deleted, and has its parent set to NULL.
       Since the caller has access to the node, he is expected to delete it.

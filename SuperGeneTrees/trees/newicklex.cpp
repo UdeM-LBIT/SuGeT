@@ -8,7 +8,6 @@ Node* NewickLex::ParseNewickString(string& str, bool maintainTreeInfo)
 {
     Node* root = new Node(maintainTreeInfo);
     int pos = str.find_last_of(')');
-
     int lastcolonpos = str.find_last_of(';');
 
 
@@ -26,6 +25,11 @@ Node* NewickLex::ParseNewickString(string& str, bool maintainTreeInfo)
         root->SetLabel(label);
 
         ReadNodeChildren(str, pos - 1, root);
+    }
+    else
+    {
+        //this should be the root label
+        root->SetLabel(str.substr(0, str.length() - 1));
     }
 
     return root;

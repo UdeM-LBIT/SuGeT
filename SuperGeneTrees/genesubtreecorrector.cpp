@@ -9,17 +9,22 @@ GeneSubtreeCorrector::GeneSubtreeCorrector()
 //NOTE : geneTree WILL BE MODIFIED AND LOSE ITS LCA MAPPING.
 //Don't hold to it too closely. You have been warned.
 Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, Node* speciesTree,
-                                         unordered_map<Node*, Node*> lca_mapping,
-                                         vector<Node*> geneSubtreeRoots,
+                                         unordered_map<Node*, Node*> &lca_mapping,
+                                         vector<Node *> &geneSubtreeRoots,
                                          bool mustPreserveDupSpec)
 {
 
-    if (geneSubtreeRoots.size() <= 1)
+
+    if (geneSubtreeRoots.size() <= 1 || speciesTree->IsLeaf())
     {
         Node* copy = new Node(false);
         copy->CopyFrom(geneTree);
         return copy;
     }
+
+   // vector<Node*> v;
+   // v.push_back(geneTree);
+   // GeneSpeciesTreeUtil::Instance()->LabelInternalNodesUniquely(v);
 
     //sacrifice some O(n) space for faster O(1) searching
     unordered_set<Node*> geneSubtreeRoots_set;
@@ -54,9 +59,11 @@ Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, N
     //sometimes 2 trees get handled in one iteration, so we keep track
     //of what is handled
     unordered_set<Node*> handledSubtrees;
+    vector<Node*> nodesPendingDeletion;  //we NEED to prevent deleting subtrees that are in the subtreeroots
 
     for (int i = 0; i < geneSubtreeRoots.size(); i++)
     {
+
         Node* n = geneSubtreeRoots[i];
 
         if (handledSubtrees.find(n) != handledSubtrees.end())
@@ -73,25 +80,50 @@ Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, N
         //since geneSubtreeRoots partition the leaves, eith sibl is marked (cherry case)
         //or it has 2+ descendants that are marked
         bool is_siblmarked = (geneSubtreeRoots_set.find(sibl) != geneSubtreeRoots_set.end());
+
+
+
         if (is_siblmarked)  //cherry = merge trees
         {
+            handledSubtrees.insert(n);
+            handledSubtrees.insert(sibl);
+
             Node* grandParent = NULL;
             if (!n->GetParent()->IsRoot())
                 grandParent = parent->GetParent();
-            Node* parentLCAMapping = lca_mapping[parent];  //ya we'll need it
+            Node* parentLCAMapping = lca_mapping[parent];
 
             vector<Node*> subtrees;
             subtrees.push_back(n);
             subtrees.push_back(sibl);
             vector< unordered_map<Node*, Node*> > subtrees_lca_mapping;
+
+
+
             //why twice the same line below?  because supergenetreemaker needs one lca mapping
             //per gene tree.  But in our case the same lca mapping can be used for both
             subtrees_lca_mapping.push_back(lca_mapping);
             subtrees_lca_mapping.push_back(lca_mapping);
 
+            /*cout<<"B4 (1) ----------------------";
+            GeneSpeciesTreeUtil::Instance()->PrintMapping(subtrees[0], lca_mapping);
+            cout<<"B4 (2) ----------------------";
+            GeneSpeciesTreeUtil::Instance()->PrintMapping(subtrees[1], lca_mapping);
+            cout<<"B4 (AAA) ----------------------";
+            GeneSpeciesTreeUtil::Instance()->PrintMapping(geneTree, lca_mapping);*/
+
             SuperGeneTreeMaker supermaker;
+
             pair<Node*, int> res = supermaker.GetSuperGeneTreeMinDL(subtrees, subtrees_lca_mapping, speciesTree, mustPreserveDupSpec);
+
+            //cout<<"AFTR ----------------------";
+            //GeneSpeciesTreeUtil::Instance()->PrintMapping(subtrees[0], lca_mapping);
+            //cout<<"AFTR (2) ----------------------";
+            //GeneSpeciesTreeUtil::Instance()->PrintMapping(subtrees[1], lca_mapping);
+
             Node* newsubtree = res.first;
+
+            lca_mapping[newsubtree] = parentLCAMapping;
 
             //now replace the parent subtree with the result.  Let's not forget to update lca mapping
             //and remember that n and sibl are handled
@@ -99,22 +131,25 @@ Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, N
             {
                 grandParent->RemoveChild(parent);
                 grandParent->AddSubTree(newsubtree);
-                delete parent;  //sorry man
+
+                nodesPendingDeletion.push_back(parent);
             }
             else
             {
+
                 //ah, so we end up here because there's no grandParent.  That means the geneTree root
                 //is itself a cherry.  In this case, just return the result from supermaker
                 return newsubtree;
             }
 
-            lca_mapping[newsubtree] = parentLCAMapping;
 
-            handledSubtrees.insert(n);
-            handledSubtrees.insert(sibl);
+
+
+
         }
         else    //sibling has 2+ marked descendants
         {
+
             if (n->IsLeaf())
                 continue;   //evil continue
 
@@ -209,8 +244,16 @@ Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, N
             }
 
         }
+
+
     }
 
+
+    for (int i = 0; i < nodesPendingDeletion.size(); i++)
+    {
+        delete nodesPendingDeletion[i];
+    }
+    nodesPendingDeletion.clear();
 
     Node*  gcopy = new Node(false);
     gcopy->CopyFrom(geneTree);
@@ -220,3 +263,9 @@ Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, N
     return gcopy;
 
 }
+
+
+
+
+
+

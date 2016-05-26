@@ -21,7 +21,8 @@ SOURCES += main.cpp \
     trees/treeinfo.cpp \
     trees/treeiterator.cpp \
     supergenetreemaker.cpp \
-    genesubtreecorrector.cpp
+    genesubtreecorrector.cpp \
+    trees/polysolver.cpp
 
 
 QMAKE_CXXFLAGS += -std=c++0x
@@ -34,4 +35,10 @@ HEADERS += \
     trees/treeiterator.h \
     supergenetreemaker.h \
     div/util.h \
-    genesubtreecorrector.h
+    genesubtreecorrector.h \
+    div/tinydir.h \
+    trees/polysolver.h
+
+
+DEFINES -= UNICODE
+DEFINES += _MBCS
