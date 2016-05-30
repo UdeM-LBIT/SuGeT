@@ -24,6 +24,9 @@ string DoSubtreeCorrection(string gcontent, string scontent, bool preserveDupSpe
 string DoSGTOnHighSpecs(string gcontent, string scontent, bool preserveDupSpec);
 void DoPolytomyCorrection(string gcontent, string scontent);
 
+//G__ for global.  Yes, global vars
+int G__maxNBLeaves = 999999;
+int G__maxNBSubtrees = 999999;
 
 int main(int argc, char *argv[])
 {
@@ -99,10 +102,29 @@ int main(int argc, char *argv[])
         }
     }
 
+
+    if (args.find("maxl") != args.end())
+    {
+        G__maxNBLeaves = Util::ToInt(args["maxl"]);
+    }
+
+
+    if (args.find("maxt") != args.end())
+    {
+        G__maxNBSubtrees = Util::ToInt(args["maxt"]);
+    }
+
+
     string batchDir = "";
     if (args.find("b") != args.end())  //BATCH DIR
     {
         batchDir = args["b"];
+    }
+
+    string correctionDir = "";
+    if (args.find("c") != args.end())  //BATCH DIR
+    {
+        correctionDir = args["c"];
     }
 
 
@@ -203,7 +225,14 @@ int main(int argc, char *argv[])
                     /// ROUND 1 : MTRH without labels
                     ///////////////////////////////////////////////////////////
                     clock_t time = clock();
-                    DoSubtreeCorrection(gcontent, pruned_scontent, false, "highspecs", "stats");
+                    string solution_nolbl =
+                            DoSubtreeCorrection(gcontent, pruned_scontent, false, "highspecs", "stats");
+
+                    if (correctionDir != "" && solution_nolbl != "")
+                    {
+                        Util::WriteFileContent(correctionDir + filename + ".correction",
+                                           gcontent + "\n" + solution_nolbl);
+                    }
 
                     time = clock() - time;
                     int ms = (double)time / CLOCKS_PER_SEC * 1000;
@@ -213,7 +242,14 @@ int main(int argc, char *argv[])
                     /// ROUND 2 : MTRH with labels
                     ///////////////////////////////////////////////////////////
                     time = clock();
-                    DoSubtreeCorrection(gcontent, pruned_scontent, true, "highspecs", "stats");  //repeating useless preprocessing here but do I care?
+                    string solution_lbl =
+                            DoSubtreeCorrection(gcontent, pruned_scontent, true, "highspecs", "stats");  //repeating useless preprocessing here but do I care?
+
+                    if (correctionDir != "" && solution_lbl != "")
+                    {
+                        Util::WriteFileContent(correctionDir + filename + ".correction_lbl",
+                                           gcontent + "\n" + solution_lbl);
+                    }
 
                     time = clock() - time;
                     ms = (double)time / CLOCKS_PER_SEC * 1000;
@@ -395,7 +431,10 @@ string DoSubtreeCorrection(string gcontent, string scontent, bool preserveDupSpe
     delete geneTree;
     delete speciesTree;
 
-    return result;
+    if (markedGeneTreeNodes.size() <= 1)
+        return "";
+    else
+        return result;
 
 }
 
@@ -544,6 +583,15 @@ string DoSGTOnHighSpecs(string gcontent, string scontent, bool preserveDupSpec)
 
 
     vector<Node*> highspecs = GeneSpeciesTreeUtil::Instance()->GetGeneTreeHighestSpeciations(geneTree, speciesTree, lcamap);
+
+
+    if (geneTree->GetNbLeaves() > G__maxNBLeaves || highspecs.size() > G__maxNBSubtrees)
+    {
+        cout<<"Skipped,Skipped,Skipped";
+        delete geneTree;
+        delete speciesTree;
+        return gcontent;
+    }
 
     if (highspecs.size() <= 1)
     {

@@ -691,3 +691,11 @@ void Node::GraftOnParentEdge(Node* nodeToGraft)
     n->AddSubTree(this);
     n->AddSubTree(nodeToGraft);
 }
+
+
+int Node::GetNbLeaves()
+{
+    vector<Node*> v = GetLeafVector();
+
+    return v.size();
+}

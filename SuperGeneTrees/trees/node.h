@@ -334,6 +334,9 @@ public:
     void SetCustomField(string name, string val);
 
     string GetCustomField(string name);
+
+
+    int GetNbLeaves();
 };
 
 #endif // NODE_H
