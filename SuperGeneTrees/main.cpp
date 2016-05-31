@@ -221,12 +221,16 @@ int main(int argc, char *argv[])
                 {
                     cout<<filename<<",";
 
+                    Util::WriteFileContent("./curtree.tmp", fullname);
+
                     ///////////////////////////////////////////////////////////
                     /// ROUND 1 : MTRH without labels
                     ///////////////////////////////////////////////////////////
                     clock_t time = clock();
-                    string solution_nolbl =
-                            DoSubtreeCorrection(gcontent, pruned_scontent, false, "highspecs", "stats");
+                    string solution_nolbl;
+                    solution_nolbl = DoSubtreeCorrection(gcontent, pruned_scontent, false, "highspecs", "stats");
+
+
 
                     if (correctionDir != "" && solution_nolbl != "")
                     {
@@ -242,8 +246,8 @@ int main(int argc, char *argv[])
                     /// ROUND 2 : MTRH with labels
                     ///////////////////////////////////////////////////////////
                     time = clock();
-                    string solution_lbl =
-                            DoSubtreeCorrection(gcontent, pruned_scontent, true, "highspecs", "stats");  //repeating useless preprocessing here but do I care?
+                    string solution_lbl = "";
+                    solution_lbl = DoSubtreeCorrection(gcontent, pruned_scontent, true, "highspecs", "stats");  //repeating useless preprocessing here but do I care?
 
                     if (correctionDir != "" && solution_lbl != "")
                     {
@@ -261,7 +265,7 @@ int main(int argc, char *argv[])
                     ///////////////////////////////////////////////////////////
                     time = clock();
 
-                    DoPolytomyCorrection(gcontent, pruned_scontent);
+                    //DoPolytomyCorrection(gcontent, pruned_scontent);
 
                     time = clock() - time;
                     ms = (double)time / CLOCKS_PER_SEC * 1000;
