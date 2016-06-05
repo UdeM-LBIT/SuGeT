@@ -217,7 +217,7 @@ public:
     /**
       Clear the children vector of the node.  The child Node* objects ARE NOT DELETED.
       */
-    void RemoveChildren();
+    void RemoveChildren(bool setParentToNullOnChildren = true);
 
     /**
       Returns one of STATE_LOSS, STATE_SPECIATION or STATE_DUPLICATION.
@@ -326,7 +326,7 @@ public:
      * @brief GraftOnParentEdge
      * @param nodeToGraft
      */
-    void GraftOnParentEdge(Node* nodeToGraft);
+    Node* GraftOnParentEdge(Node* nodeToGraft);
 
 
 

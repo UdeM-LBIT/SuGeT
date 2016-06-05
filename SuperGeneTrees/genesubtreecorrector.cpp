@@ -5,6 +5,161 @@ GeneSubtreeCorrector::GeneSubtreeCorrector()
 
 }
 
+
+Node* GeneSubtreeCorrector::minTRS_Rec(Node* geneTree, Node* speciesTree, unordered_map<Node *, Node *> &lca_mapping,
+                 set<Node*> &markedGeneNodes, bool mustRetainDupSpec)
+{
+
+    if (geneTree->IsLeaf() || markedGeneNodes.find(geneTree) != markedGeneNodes.end())
+    {
+        Node* ret = new Node(false);
+        ret->CopyFrom(geneTree);
+        lca_mapping[ret] = lca_mapping[geneTree];
+        return geneTree;
+    }
+
+    Node* ch1 = geneTree->GetChild(0);
+    Node* ch2 = geneTree->GetChild(1);
+
+    //both children are marked === here is a cherry
+    //so we call minSGT on that
+    if (markedGeneNodes.find(ch1) != markedGeneNodes.end()
+            && markedGeneNodes.find(ch2) != markedGeneNodes.end() )
+    {
+        vector<Node*> subtrees;
+        subtrees.push_back(ch1);
+        subtrees.push_back(ch2);
+        vector< unordered_map<Node*, Node*> > subtrees_lca_mapping;
+
+        //why twice the same line below?  because supergenetreemaker needs one lca mapping
+        //per gene tree.  But in our case the same lca mapping can be used for both
+        subtrees_lca_mapping.push_back(lca_mapping);
+        subtrees_lca_mapping.push_back(lca_mapping);
+
+
+        SuperGeneTreeMaker supermaker;
+
+        pair<Node*, int> res = supermaker.GetSuperGeneTreeMinDL(subtrees, subtrees_lca_mapping, speciesTree, mustRetainDupSpec);
+
+
+        Node* newsubtree = res.first;
+
+        lca_mapping[newsubtree] = lca_mapping[geneTree];
+
+
+        return newsubtree;
+
+    }
+    //ch1 is marked, not ch2 (or converse) ==> try grafting minRTS(ch2) on every branch of ch1
+    else if (markedGeneNodes.find(ch1) != markedGeneNodes.end() ||
+             markedGeneNodes.find(ch2) != markedGeneNodes.end())
+    {
+
+        Node* markedTree = ch1;
+        Node* otherTree = ch2;
+        if (markedGeneNodes.find(ch2) != markedGeneNodes.end())
+        {
+            markedTree = ch2;
+            otherTree = ch1;
+        }
+
+        //we will work with copies
+        //here, because we're in a hurry to submit, we just try every possibility,
+        //compute the reconciliation cost on each possibility
+        Node* markedTree2 = new Node(false);
+        markedTree2->CopyFrom(markedTree);
+
+        Node* otherTree2 = minTRS_Rec(otherTree, speciesTree, lca_mapping, markedGeneNodes, mustRetainDupSpec);
+
+
+        int minDL = 99999;
+        Node* minNode = NULL;
+
+        //attempt 1: original topology
+        Node* tmp = new Node(false);
+        tmp->AddSubTree(markedTree2);
+        tmp->AddSubTree(otherTree2);
+
+        unordered_map<Node*, Node*> lca_mapping_tmp =
+                GeneSpeciesTreeUtil::Instance()->GetLCAMapping(tmp, speciesTree, "__", 1);
+
+        minDL = GeneSpeciesTreeUtil::Instance()->GetDLScore(tmp, speciesTree, lca_mapping_tmp);
+
+        minNode = NULL;  //meaning, subdivide the trees
+        tmp->RemoveChildren();
+        delete tmp;
+
+        //try grafting otherTree2 on every branch of otherTree
+        TreeIterator* it2 = markedTree2->GetPostOrderIterator();
+        while (Node* mn = it2->next())
+        {
+            if (mn != markedTree2)
+            {
+                Node* pmn = mn->GetParent();
+                bool wasNodeDup = GeneSpeciesTreeUtil::Instance()->IsNodeDup(pmn, lca_mapping_tmp);
+
+                Node* graftn = mn->GraftOnParentEdge(otherTree2);
+
+                //yeah, we have to REDO this because graftn has no mapping
+                unordered_map<Node*, Node*> lcamap_pnm = GeneSpeciesTreeUtil::Instance()->GetLCAMapping(markedTree2, speciesTree, "__", 1);
+
+                bool isNodeDup = GeneSpeciesTreeUtil::Instance()->IsNodeDup(pmn, lcamap_pnm);
+
+                int dl = GeneSpeciesTreeUtil::Instance()->GetDLScore(markedTree2, speciesTree, lcamap_pnm);
+
+
+                if (dl < minDL && !(!wasNodeDup && isNodeDup && mustRetainDupSpec))
+                {
+
+                    minDL = dl;
+                    minNode = mn;
+                }
+
+                //ungraft
+                graftn->RemoveChildren();
+                pmn->RemoveChild(graftn);
+                pmn->AddSubTree(mn);
+                delete graftn;
+
+            }
+        }
+        markedTree->CloseIterator(it2);
+
+        if (!minNode)
+        {
+            Node* tmp = new Node(false);
+            tmp->AddSubTree(markedTree2);
+            tmp->AddSubTree(otherTree2);
+            lca_mapping[tmp] = lca_mapping[geneTree];
+            return tmp;
+        }
+        else
+        {
+
+            minNode->GraftOnParentEdge(otherTree2);
+            lca_mapping[markedTree2] = lca_mapping[geneTree];
+            return markedTree2;
+        }
+
+
+    }
+    //nothing is marked, recurse
+    else
+    {
+        Node* t1 = minTRS_Rec(ch1, speciesTree, lca_mapping, markedGeneNodes, mustRetainDupSpec);
+        Node* t2 = minTRS_Rec(ch2, speciesTree, lca_mapping, markedGeneNodes, mustRetainDupSpec);
+        Node* newnode = new Node(false);
+        newnode->AddSubTree(t1);
+        newnode->AddSubTree(t2);
+
+        lca_mapping[newnode] = lca_mapping[geneTree];
+
+        return newnode;
+    }
+
+}
+
+
 //geneSubtreeRoots must partition the leafset.  We don't check for it.
 //NOTE : geneTree WILL BE MODIFIED AND LOSE ITS LCA MAPPING.
 //Don't hold to it too closely. You have been warned.
@@ -13,9 +168,23 @@ Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, N
                                          vector<Node *> &geneSubtreeRoots,
                                          bool mustPreserveDupSpec)
 {
-
-
     if (geneSubtreeRoots.size() <= 1 || speciesTree->IsLeaf())
+    {
+        Node* copy = new Node(false);
+        copy->CopyFrom(geneTree);
+        return copy;
+    }
+
+    set<Node*> geneSubtreeRoots_set;
+    for (int i = 0; i < geneSubtreeRoots.size(); i++)
+    {
+        geneSubtreeRoots_set.insert(geneSubtreeRoots[i]);
+    }
+
+    return minTRS_Rec(geneTree, speciesTree, lca_mapping, geneSubtreeRoots_set, mustPreserveDupSpec);
+
+
+    /*if (geneSubtreeRoots.size() <= 1 || speciesTree->IsLeaf())
     {
         Node* copy = new Node(false);
         copy->CopyFrom(geneTree);
@@ -36,30 +205,13 @@ Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, N
     //call a node "marked" if it is a root of geneSubtreeRoots
     //step 1 = annotate each node with # of marked descendants
     //we WILL (previously COULD) skip this in more clever ways, but meh...
-    /*TreeIterator* it = geneTree->GetPostOrderIterator();
 
-    while (Node* n = it->next())
-    {
-        int nbdesc = 0;
-
-        if (std::find(geneSubtreeRoots.begin(), geneSubtreeRoots.end(), n) != geneSubtreeRoots.end())
-            nbdesc++;
-
-        if (!n->IsLeaf())
-        {
-            nbdesc += Util::ToInt(n->GetChild(0)->GetCustomField("nb_marked_descendants"));
-            nbdesc += Util::ToInt(n->GetChild(1)->GetCustomField("nb_marked_descendants"));
-        }
-
-        n->SetCustomField("nb_marked_descendants", Util::ToString(nbdesc));
-    }
-    geneTree->CloseIterator(it);
-    */
 
     //sometimes 2 trees get handled in one iteration, so we keep track
     //of what is handled
     unordered_set<Node*> handledSubtrees;
     vector<Node*> nodesPendingDeletion;  //we NEED to prevent deleting subtrees that are in the subtreeroots
+
 
     for (int i = 0; i < geneSubtreeRoots.size(); i++)
     {
@@ -105,21 +257,11 @@ Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, N
             subtrees_lca_mapping.push_back(lca_mapping);
             subtrees_lca_mapping.push_back(lca_mapping);
 
-            /*cout<<"B4 (1) ----------------------";
-            GeneSpeciesTreeUtil::Instance()->PrintMapping(subtrees[0], lca_mapping);
-            cout<<"B4 (2) ----------------------";
-            GeneSpeciesTreeUtil::Instance()->PrintMapping(subtrees[1], lca_mapping);
-            cout<<"B4 (AAA) ----------------------";
-            GeneSpeciesTreeUtil::Instance()->PrintMapping(geneTree, lca_mapping);*/
 
             SuperGeneTreeMaker supermaker;
 
             pair<Node*, int> res = supermaker.GetSuperGeneTreeMinDL(subtrees, subtrees_lca_mapping, speciesTree, mustPreserveDupSpec);
 
-            //cout<<"AFTR ----------------------";
-            //GeneSpeciesTreeUtil::Instance()->PrintMapping(subtrees[0], lca_mapping);
-            //cout<<"AFTR (2) ----------------------";
-            //GeneSpeciesTreeUtil::Instance()->PrintMapping(subtrees[1], lca_mapping);
 
             Node* newsubtree = res.first;
 
@@ -156,6 +298,20 @@ Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, N
 
             Node* n1 = n->GetChild(0);
             Node* n2 = n->GetChild(1);
+
+
+            //try grafting on every possible branch
+            TreeIterator* it_3desc = n->GetPostOrderIterator();
+            while (Node* ndesc = it_3desc->next())
+            {
+                if (ndesc != n)
+                {
+                    //graft on ndesc - parent branch and check the score
+
+                }
+            }
+            n->CloseIterator(it_3desc);
+
 
             //3 options:
             //do nothing (sibl, (n1, n2))
@@ -261,6 +417,7 @@ Node* GeneSubtreeCorrector::GetSubtreeTripletRespectingHistory(Node* geneTree, N
     gcopy->DeleteSingleChildDescendants();
 
     return gcopy;
+    */
 
 }
 

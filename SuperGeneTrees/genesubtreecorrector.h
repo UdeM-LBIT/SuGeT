@@ -23,6 +23,10 @@ public:
                                              vector<Node *> &geneSubtreeRoots, bool mustRetainDupSpec);
 
 
+private:
+
+    Node* minTRS_Rec(Node* geneTree, Node* speciesTree, unordered_map<Node *, Node *> &lca_mapping,
+                     set<Node*> &markedGeneNodes, bool mustRetainDupSpec);
 
 };
 

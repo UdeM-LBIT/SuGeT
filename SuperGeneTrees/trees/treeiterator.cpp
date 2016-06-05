@@ -120,7 +120,7 @@ Node* PostOrderTreeIterator::DeleteCurrent()
         pops->AddSubTree(deadNode->GetChild(i));
     }
 
-    deadNode->RemoveChildren();
+    deadNode->RemoveChildren(false);
 
     delete deadNode;
 

@@ -298,12 +298,15 @@ void Node::RemoveChild(Node* node)
 }
 
 
-void Node::RemoveChildren()
+void Node::RemoveChildren(bool setParentToNullOnChildren)
 {
-    /*for (int i = 0; i < children.size(); i++)
+    if (setParentToNullOnChildren)
     {
-        this->children[i]->SetParent(NULL);
-    }*/
+        for (int i = 0; i < children.size(); i++)
+        {
+            this->children[i]->SetParent(NULL);
+        }
+    }
     children.clear();
 
 
@@ -680,7 +683,7 @@ string Node::GetCustomField(string name)
 }
 
 
-void Node::GraftOnParentEdge(Node* nodeToGraft)
+Node* Node::GraftOnParentEdge(Node* nodeToGraft)
 {
     if (this->IsRoot())
         throw "Can graft on root";
@@ -690,6 +693,8 @@ void Node::GraftOnParentEdge(Node* nodeToGraft)
     Node* n = parent->AddChild();
     n->AddSubTree(this);
     n->AddSubTree(nodeToGraft);
+
+    return n;
 }
 
 

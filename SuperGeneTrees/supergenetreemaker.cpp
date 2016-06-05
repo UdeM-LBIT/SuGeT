@@ -27,7 +27,7 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> &trees
 
         recursionCache.clear();
 
-        for (int t = 0; t < trees.size(); t++)
+        //for (int t = 0; t < trees.size(); t++)
         {
             //cout<<"DEBUG INFO!"<<endl<<endl;
             //cout<<NewickLex::ToNewickString(trees[t])<<endl;

@@ -265,7 +265,7 @@ int main(int argc, char *argv[])
                     ///////////////////////////////////////////////////////////
                     time = clock();
 
-                    //DoPolytomyCorrection(gcontent, pruned_scontent);
+                    DoPolytomyCorrection(gcontent, pruned_scontent);
 
                     time = clock() - time;
                     ms = (double)time / CLOCKS_PER_SEC * 1000;
@@ -274,7 +274,7 @@ int main(int argc, char *argv[])
                     ///////////////////////////////////////////////////////////
                     /// ROUND 4 : SuGeT  without labels
                     ///////////////////////////////////////////////////////////
-                    /// NOPE, TOO LONG
+
                     time = clock();
 
                     DoSGTOnHighSpecs(gcontent, pruned_scontent, false);
@@ -344,7 +344,6 @@ string DoSubtreeCorrection(string gcontent, string scontent, bool preserveDupSpe
 
     if (outputmode == "stats")
         cout<<geneTree->GetLeafSet().size()<<",";
-
     unordered_map<Node*, Node*> lcamap = GeneSpeciesTreeUtil::Instance()->GetLCAMapping(geneTree, speciesTree, "__", 1);
 
     GeneSpeciesTreeUtil::Instance()->GetDLScore(geneTree, speciesTree, lcamap);

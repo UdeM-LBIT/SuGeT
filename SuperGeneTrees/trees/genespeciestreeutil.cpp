@@ -54,6 +54,7 @@ unordered_map<Node*, Node*> GeneSpeciesTreeUtil::GetLCAMapping(Node *geneTree, N
 
 unordered_map<Node*, Node*> GeneSpeciesTreeUtil::GetLCAMapping(Node *geneTree, Node *speciesTree, string geneLabelSeparator, int speciesIndex)
 {
+
     unordered_map<Node*, Node*> m = this->GetGeneSpeciesMappingByLabel(geneTree, speciesTree, geneLabelSeparator, speciesIndex);
 
     return this->GetLCAMapping(geneTree, speciesTree, m);
@@ -99,8 +100,12 @@ unordered_map<Node*, Node*> GeneSpeciesTreeUtil::GetGeneSpeciesMappingByLabel(No
         vector<string> sz = Util::Split(g->GetLabel(), separator);
 
         if (sz.size() < speciesIndex - 1)
+        {
+            cout<<"Gene label "<<lbl<<" malformed"<<endl<<flush;
             throw "Gene label " + lbl + " malformed.";
+        }
         Node* s = speciesTree->GetTreeInfo()->GetNodeByLabel(sz[speciesIndex]);
+
         if (s)
         {
             mapping[g] = s;
@@ -478,7 +483,6 @@ string GeneSpeciesTreeUtil::GetPrunedSpeciesTreeNewick(string gcontent, string s
     {
         Node* prevroot = speciesTree;
         speciesTree = prevroot->GetChild(0);
-        speciesTree->SetParent(NULL);
         prevroot->RemoveChild(speciesTree);
         delete prevroot;
     }
