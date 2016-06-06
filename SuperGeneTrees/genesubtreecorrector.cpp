@@ -90,9 +90,11 @@ Node* GeneSubtreeCorrector::minTRS_Rec(Node* geneTree, Node* speciesTree, unorde
         delete tmp;
 
         //try grafting otherTree2 on every branch of otherTree
-        TreeIterator* it2 = markedTree2->GetPostOrderIterator();
-        while (Node* mn = it2->next())
+        //normally we'd use a TreeIterator but here we'll modify the tree, so better not
+        vector<Node*> markedTree2Nodes = markedTree2->GetPostOrderedNodes();
+        for (int imn = 0; imn < markedTree2Nodes.size(); imn++)
         {
+            Node* mn = markedTree2Nodes[imn];
             if (mn != markedTree2)
             {
                 Node* pmn = mn->GetParent();
@@ -123,7 +125,6 @@ Node* GeneSubtreeCorrector::minTRS_Rec(Node* geneTree, Node* speciesTree, unorde
 
             }
         }
-        markedTree->CloseIterator(it2);
 
         if (!minNode)
         {
