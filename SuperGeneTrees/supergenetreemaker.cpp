@@ -15,11 +15,15 @@ SuperGeneTreeMaker::SuperGeneTreeMaker()
 
 
 int NCALLS = 0;
-pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> &trees, vector<unordered_map<Node *, Node *> > &lca_mappings,
-                                                Node* speciesTree, bool mustPreserveDupSpec, bool isFirstCall)
+int * SOLSIZE;
+
+vector<pair<Node*, int>> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> &trees, vector<unordered_map<Node *, Node *> > &lca_mappings,
+                                                Node* speciesTree, bool mustPreserveDupSpec, bool isFirstCall, int limit)
 {
+    vector<pair<Node*, int>> solList;
     if (isFirstCall)
     {
+       SOLSIZE = &limit; // there is probably a better way to do this, but wtv
 
         GeneSpeciesTreeUtil::Instance()->LabelInternalNodesUniquely(trees);
         this->intersectionInfo = TreeLabelIntersectionInfo();
@@ -46,17 +50,26 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> &trees
     }
     if (recursionCache.find(strtrees) != recursionCache.end())
     {
-        pair<Node*, int> sol = recursionCache[strtrees];
+        // Changed by EN
+        vector<pair<Node*, int>> cachedSol = recursionCache[strtrees];
         //return a copy: we don't want the cached one to get deleted
         //TODO: eliminate the need for all this copying stuff
-        Node* nret = new Node(false);
-        nret->CopyFrom(sol.first);
-        return make_pair(nret, sol.second);
+        // EN: it's even more important for multiple solutions now
+        for(int i = 0; i<cachedSol.size(); i++){
+
+            Node* nret = new Node(false);
+            nret->CopyFrom(cachedSol[i].first);
+            solList.push_back(make_pair(nret, cachedSol[i].second));
+        }
+        //cout<<solList.size()<<"-- recursion match"<<endl;
+
+        return solList;
+
     }
 
 
-    /*NCALLS++;
-
+    NCALLS++;
+    /*
     if (NCALLS % 100 == 0)
     {
         cout<<"NCALLS="<<NCALLS<<" "<<strtrees<<endl;
@@ -102,9 +115,12 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> &trees
     {
         Node* newnode = new Node(false);
         newnode->CopyFrom(trees[0]);    //if we end up here all trees are the same, so take any
-        return make_pair(newnode, 0);
-    }
+        // EN changed this
+        solList.push_back(make_pair(newnode, 0));
+        //cout<<solList.size()<<" -- same tree"<<endl;
 
+        return solList;
+    }
 
 
 
@@ -132,6 +148,7 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> &trees
 
     while (!done)
     {
+
         //evaluate current config corresponding to counters
         vector<Node*> treesLeft;
         vector<Node*> treesRight;
@@ -280,7 +297,7 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> &trees
 
                 vector< unordered_map<Node*, Node*> > lca_mappings_right;
                 lcacpt = 0;
-                for (int tr = 0; tr < treesRight.size(); tr++)
+                for (int tr = 0; tr < treesRight.size(); tr++) 
                 {
                     Node* stmp = NULL;
                     do
@@ -291,31 +308,40 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> &trees
                     while (!stmp);
                     lca_mappings_right.push_back(lca_mappings[lcacpt - 1]);
                 }
+                
+                int compteur = 0;
+                vector<pair<Node*, int>> res_left_list = GetSuperGeneTreeMinDL(treesLeft, lca_mappings_left, speciesTree, mustPreserveDupSpec, false, *SOLSIZE);
+                vector<pair<Node*, int>> res_right_list = GetSuperGeneTreeMinDL(treesRight, lca_mappings_right, speciesTree, mustPreserveDupSpec, false, *SOLSIZE);
+                int ttlCost;
+                for (int left_i = 0; left_i< res_left_list.size(); left_i++){
+                    for (int right_i = 0; right_i< res_right_list.size(); right_i++){
+                        ttlCost = res_left_list[left_i].second + res_right_list[right_i].second + localDLCost;
+                        //update min if need be
+                        if (ttlCost <= currentMinDL)
+                        {
+                            if (ttlCost < currentMinDL and currentBestSol){
+                                delete currentBestSol;
+                                solList.clear();
+                                compteur = 0;
+                            }
+                            // SolSIZE is garanti to always be at least one ==> I hope so
+                            // So solList should never be empty
+                            if (compteur < *SOLSIZE){
+                                currentBestSol = new Node(false);
+                                currentBestSol->AddSubTree(res_left_list[left_i].first);
+                                currentBestSol->AddSubTree(res_right_list[right_i].first);
+                                currentMinDL = ttlCost;
+                                solList.push_back(make_pair(currentBestSol, currentMinDL));
+                                compteur += 1;
+                            }
+                        }
 
-
-
-
-                pair<Node*, int> res_left = GetSuperGeneTreeMinDL(treesLeft, lca_mappings_left, speciesTree, mustPreserveDupSpec, false);
-                pair<Node*, int> res_right = GetSuperGeneTreeMinDL(treesRight, lca_mappings_right, speciesTree, mustPreserveDupSpec, false);
-
-                int ttlCost = res_left.second + res_right.second + localDLCost;
-
-
-                //update min if need be
-                if (ttlCost < currentMinDL)
-                {
-                    if (currentBestSol)
-                        delete currentBestSol;
-                    currentBestSol = new Node(false);
-                    currentBestSol->AddSubTree(res_left.first);
-                    currentBestSol->AddSubTree(res_right.first);
-                    currentMinDL = ttlCost;
+                    }
                 }
-                else
-                {
-                    delete res_left.first;
-                    delete res_right.first;
-                }
+
+                res_left_list.clear();  
+                res_right_list.clear();
+
             }
 
         }
@@ -329,23 +355,48 @@ pair<Node*, int> SuperGeneTreeMaker::GetSuperGeneTreeMinDL(vector<Node *> &trees
     }
 
 
+    // EN added this
+    // setting a maximum solution size
+    if(solList.size() >= *SOLSIZE){
+        *SOLSIZE = 1;
+    }
+
+    //cout<<limit<<" "<<*SOLSIZE<<" "<<solList.size()<<" after "<<SOLSIZE<<endl;
+    
+    vector<pair<Node*, int>> cachedSol;
+    for(int i = 0; i<solList.size(); i++){
+
+        Node* cachedBestSol = new Node(false);
+        cachedBestSol->CopyFrom(solList[i].first);
+        cachedSol.push_back(make_pair(cachedBestSol, solList[i].second));
+    }
+
     //make a copy for the cache - the original might get deleted
-    Node* cachedBestSol = new Node(false);
-    cachedBestSol->CopyFrom(currentBestSol);
-    recursionCache[strtrees] = make_pair(cachedBestSol, currentMinDL);
+    recursionCache[strtrees] = cachedSol;
 
 
     if (isFirstCall)
     {
+
+        // if (solList.size()>1){
+        //     for(int i = 0;i<solList.size(); i++ ){
+        //         cout<<NewickLex::ToNewickString(solList[i].first)<<endl;
+
+        //     }
+        // cout<<solList.size()<<" size: " <<*SOLSIZE<<" -- solution (" << currentMinDL<< ")-------------------------------\n" <<endl;
+            
+        // }
         //cleanup cache
-        for (unordered_map<string, pair<Node*, int> >::iterator it = recursionCache.begin(); it != recursionCache.end(); it++)
+        for (unordered_map<string, vector<pair<Node*, int>> >::iterator it = recursionCache.begin(); it != recursionCache.end(); it++)
         {
-            Node* cached = (*it).second.first;
-            delete cached;
+            for(int i=0; i<(*it).second.size(); i++){
+                Node* cached = (*it).second[i].first;
+                delete cached;
+            }
+        (*it).second.clear();
         }
     }
-
-    return make_pair(currentBestSol, currentMinDL);
+    return solList;
 
 }
 

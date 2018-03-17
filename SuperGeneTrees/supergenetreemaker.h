@@ -44,8 +44,9 @@ public:
     SuperGeneTreeMaker();
 
     //returns a supertree + DL cost
-    pair<Node*, int> GetSuperGeneTreeMinDL(vector<Node *> &trees, vector<unordered_map<Node *, Node *> > &lca_mappings,
-                                       Node* speciesTree, bool mustPreserveDupSpec, bool isFirstCall = true);
+    // En changed this to a vector
+    vector<pair<Node*, int>> GetSuperGeneTreeMinDL(vector<Node *> &trees, vector<unordered_map<Node *, Node *> > &lca_mappings,
+                                       Node* speciesTree, bool mustPreserveDupSpec, bool isFirstCall = true, int limit = 1);
 
 private:
 
@@ -53,8 +54,8 @@ private:
     void ApplyNextConfig(vector<int> &counters);
 
     TreeLabelIntersectionInfo intersectionInfo;
-
-    unordered_map<string, pair<Node*, int> > recursionCache;
+    // En changed this to a map with a list instead of a pair
+    unordered_map<string, vector<pair<Node*, int>> > recursionCache;
 
 
 };
