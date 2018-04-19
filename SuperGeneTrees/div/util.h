@@ -308,7 +308,7 @@ public:
     static bool FileExists(string filename)
     {
       ifstream ifile(filename.c_str());
-      return ifile;
+      return static_cast<bool>(ifile);
     }
 
     static string GetFileContent(string filename)
